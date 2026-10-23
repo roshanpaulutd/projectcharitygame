@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f8f3">
+  <meta name="description" content="A small, independent educational game inspired by charity: water. Every drop counts.">
+  <title>Water Quest: Every Drop Counts</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Water Quest home">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 3.5C12.4 9.1 7 15.3 7 20.3a9 9 0 0 0 18 0C25 15.3 19.6 9.1 16 3.5Z"/><path class="brand-glint" d="M11.4 20.7a4.7 4.7 0 0 0 3.1 4.2"/></svg></span>
+        <span class="brand-copy"><span class="brand-name">WATER <b>QUEST</b></span><span class="brand-caption">A game about every drop</span></span>
+      </a>
+      <div class="header-note"><span class="status-dot"></span> AN INDEPENDENT LEARNING GAME</div>
+      <a class="inspired-link" href="https://www.charitywater.org/" target="_blank" rel="noreferrer">Inspired by charity: water <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main id="top">
+      <section class="intro" aria-labelledby="game-title">
+        <div class="intro-copy">
+          <p class="eyebrow"><span>FIELD GAME</span><span class="eyebrow-rule"></span><span>NO. 01</span></p>
+          <h1 id="game-title">Water Quest<span class="title-period">.</span></h1>
+          <p class="intro-deck">Every drop counts.</p>
+        </div>
+        <p class="intro-note">Guide each clean drop safely home.<br>Small actions can make a world of difference.</p>
+      </section>
+
+      <section class="game-layout" aria-label="Water Quest game">
+        <div class="game-column">
+          <div class="stats" role="group" aria-label="Game statistics">
+            <div class="stat-card score-card"><span class="stat-label">SCORE</span><span class="stat-value" id="score-value">0000</span><span class="stat-detail">10 per clean drop</span></div>
+            <div class="stat-card time-card"><span class="stat-label">TIME LEFT</span><span class="stat-value" id="time-value">1:15</span><span class="stat-detail">seconds on the route</span></div>
+            <div class="stat-card progress-card"><div class="stat-topline"><span class="stat-label">CLEAN-WATER GOAL</span><span class="progress-number" id="progress-value">0%</span></div><div class="progress-track" id="progress-track" role="progressbar" aria-label="Clean-water goal progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="progress-fill" id="progress-fill"></span><span class="progress-tick" aria-hidden="true"></span><span class="progress-tick" aria-hidden="true"></span><span class="progress-tick" aria-hidden="true"></span></div><span class="stat-detail" id="progress-detail">0 of 8 drops delivered</span></div>
+            <div class="stat-card lives-card"><span class="stat-label">ROUTE LIVES</span><div class="life-row" id="life-row" role="img" aria-label="3 lives remaining"><span class="life-dot" aria-hidden="true">♥</span><span class="life-dot" aria-hidden="true">♥</span><span class="life-dot" aria-hidden="true">♥</span></div><span class="stat-detail">wall or own-trail hits</span></div>
+          </div>
+
+          <div class="board-frame">
+            <div class="board-topline"><span class="board-label"><span class="board-pulse"></span> GAME BOARD</span><span class="board-coordinate">ROUTE 01 <span aria-hidden="true">/</span> COMMUNITY WELL</span></div>
+            <div class="game-stage" id="game-stage" tabindex="0" role="application" aria-label="Water Quest Snake game. Steer the yellow water drop continuously with arrow keys or WASD. Collect clean water to grow your blue trail; avoid contaminated drops, the board edge, and your own trail.">
+              <div class="sky-haze" aria-hidden="true"></div>
+              <div class="distant-hill hill-one" aria-hidden="true"></div><div class="distant-hill hill-two" aria-hidden="true"></div>
+              <div class="river-bank" aria-hidden="true"></div>
+              <div class="river" aria-hidden="true"><span class="river-line river-line-one"></span><span class="river-line river-line-two"></span><span class="river-line river-line-three"></span></div>
+              <div class="route-line" aria-hidden="true"></div>
+              <div class="destination" role="img" aria-label="Clean-water destination: community well"><span class="destination-icon" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M20 4 5 17v18h30V17L20 4Z"/><path d="M16 35V23h8v12M3 18l17-15 17 15"/></svg></span><span>WELL</span></div>
+              <div class="start-marker" aria-hidden="true"><span>START</span><i></i></div>
+              <div class="snake-grid" id="snake-grid" aria-hidden="true"></div>
+              <div class="trail-layer" id="trail-layer" aria-hidden="true"></div>
+              <div class="items-layer" id="items-layer" aria-hidden="true"></div>
+              <div class="player" id="player" aria-hidden="true"><span class="player-spark"></span><svg viewBox="0 0 40 48"><path d="M20 3C15.5 10.4 7 20.3 7 29a13 13 0 0 0 26 0C33 20.3 24.5 10.4 20 3Z"/><path class="player-shine" d="M14 28c.2-2.8 1.4-5.5 3.4-8"/></svg></div>
+              <div class="effects-layer" id="effects-layer" aria-hidden="true"></div>
+              <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+              <div class="game-overlay" id="game-overlay" data-visible="true" data-state="ready" role="dialog" aria-modal="true" aria-labelledby="overlay-title" aria-describedby="overlay-message">
+                <div class="overlay-card" id="overlay-card">
+                  <span class="overlay-kicker" id="overlay-kicker">A LITTLE GAME. A BIG IDEA.</span>
+                  <span class="overlay-brand">Inspired by <b>charity: water</b> · independent game</span>
+                  <span class="overlay-drop" aria-hidden="true"><svg viewBox="0 0 40 48"><path d="M20 3C15.5 10.4 7 20.3 7 29a13 13 0 0 0 26 0C33 20.3 24.5 10.4 20 3Z"/></svg></span>
+                  <h2 id="overlay-title">Water Quest</h2>
+                  <p class="overlay-tagline" id="overlay-tagline">Every drop has a destination.</p>
+                  <p id="overlay-message">Steer the water-drop leader continuously. Collect 8 clean drops before 1:15 runs out; each one grows your trail. Avoid contaminated water, the board edge, and your own trail.</p>
+                  <button class="button button-primary" id="overlay-button" type="button"><span id="overlay-button-text">Start Game</span><span class="button-arrow" aria-hidden="true">→</span></button>
+                  <span class="overlay-footnote" id="overlay-footnote">ARROWS / WASD · TOUCH PAD OR SWIPE</span>
+                </div>
+              </div>
+              <div class="screen-flash" id="screen-flash" aria-hidden="true"></div>
+            </div>
+            <div class="board-legend" aria-label="Game board legend"><span><i class="legend-clean"></i> Clean water <b>+10 · +1 segment</b></span><span><i class="legend-unsafe"><svg viewBox="0 0 20 20"><path d="M10 2 2 17h16L10 2Z"/><path d="M10 7v4m0 3v.2"/></svg></i> Contaminated <b>−20 · −2 segments</b></span><span><i class="legend-barrier"></i> Wall or own trail <b>−1 life</b></span></div>
+          </div>
+
+          <div class="control-strip">
+            <div class="control-instruction"><span class="control-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3m3-3 3 3m6 6-3-3m3 3-3 3m-6 6-3-3m3 3 3-3m-18-9 3-3m-3 3 3 3"/></svg></span><span><b>Navigate the waterway</b><small><span class="keyboard-instructions">Arrow keys or WASD</span><span class="touch-instructions">Tap the arrow pad</span></small></span></div>
+            <div class="key-hint" aria-hidden="true"><kbd>↑</kbd><span><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></span></div>
+            <div class="touch-controls" role="group" aria-label="Touch movement controls">
+              <button type="button" class="move-button move-up" data-direction="up" aria-label="Move up">↑</button>
+              <button type="button" class="move-button move-left" data-direction="left" aria-label="Move left">←</button>
+              <button type="button" class="move-button move-down" data-direction="down" aria-label="Move down">↓</button>
+              <button type="button" class="move-button move-right" data-direction="right" aria-label="Move right">→</button>
+            </div>
+            <button class="button button-quiet" id="restart-button" type="button" aria-label="Restart game" title="Restart game"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.7-4L3 9m0-5v5h5M4 13a8 8 0 0 0 14.7 4L21 15m0 5v-5h-5"/></svg><span>Restart</span></button>
+          </div>
+        </div>
+
+        <aside class="side-column" aria-label="Game information">
+          <section class="how-panel">
+            <div class="panel-heading"><span class="panel-index">01 / HOW TO PLAY</span><span class="panel-star" aria-hidden="true">✳</span></div>
+            <h2>Make every<br>move matter.</h2>
+            <ol class="steps-list">
+              <li><span class="step-number">01</span><span><b>Guide the water trail</b><small>Arrow keys or WASD steer continuously; tap the arrows or swipe on touch screens. You cannot reverse into your trail.</small></span></li>
+              <li><span class="step-number">02</span><span><b>Collect clean water</b><small>Each bright drop adds 10 points and one blue trail segment.</small></span></li>
+              <li><span class="step-number">03</span><span><b>Avoid pollution and your trail</b><small>Muddy drops remove two segments and 20 points. Walls and your own trail cost a life.</small></span></li>
+              <li><span class="step-number">04</span><span><b>Reach the clean-water goal</b><small>Collect 8 drops to reach 100% before the 1:15 timer runs out.</small></span></li>
+            </ol>
+            <div class="milestone-key"><span class="milestone-icon" aria-hidden="true">✳</span><span><b>Route milestones</b><small>A little celebration at 25%, 50%, 75% &amp; 100%</small></span></div>
+          </section>
+
+          <section class="mission-panel">
+            <div class="mission-art" aria-hidden="true"><span class="art-sun"></span><span class="art-hill art-hill-back"></span><span class="art-hill art-hill-front"></span><span class="art-drop"><svg viewBox="0 0 40 48"><path d="M20 3C15.5 10.4 7 20.3 7 29a13 13 0 0 0 26 0C33 20.3 24.5 10.4 20 3Z"/></svg></span><span class="art-ripple"></span></div>
+            <div class="mission-copy"><span class="panel-index">THE IDEA BEHIND THE GAME</span><h3>Water changes everything.</h3><p>Inspired by charity: water’s mission to bring clean, safe drinking water to people around the world. This is an independent educational game, not an official charity: water product.</p><a href="https://www.charitywater.org/" target="_blank" rel="noreferrer">Learn about the mission <span aria-hidden="true">↗</span></a></div>
+          </section>
+
+          <div class="route-note"><span class="note-line"></span><p>Every community deserves access to clean water.<br><b>Every drop is a step toward that future.</b></p><span class="note-mark" aria-hidden="true">WQ — 01</span></div>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="site-footer"><span>WATER QUEST <b>·</b> EVERY DROP COUNTS</span><span>AN INDEPENDENT EDUCATIONAL PROTOTYPE <i></i> INSPIRED BY CHARITY: WATER</span></footer>
+  </div>
+</body>
+</html>
