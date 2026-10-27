@@ -7,12 +7,44 @@
   const MIN_TRAIL = 2;
   const CELL_SIZE = 28;
   const ENEMY_MOVE_EVERY = 4;
-  const MILESTONES = new Map([
-    [2, '25% — Keep the clean water flowing!'],
-    [4, '50% — Halfway there!'],
-    [6, '75% — Almost there!'],
-    [8, '100% — Clean Water Goal Reached!']
-  ]);
+  const difficulties = {
+    easy: {
+      label: 'Easy',
+      goalDrops: 6,
+      timeLimit: 90,
+      lives: 4,
+      enemyTarget: 1,
+      enemySpeed: 0.8,
+      startTrail: 4,
+      description: 'A slower route with more room to make mistakes.'
+    },
+    normal: {
+      label: 'Normal',
+      goalDrops: 8,
+      timeLimit: 75,
+      lives: 3,
+      enemyTarget: 2,
+      enemySpeed: 1,
+      startTrail: 4,
+      description: 'Balanced for a steady, skill-based run.'
+    },
+    hard: {
+      label: 'Hard',
+      goalDrops: 9,
+      timeLimit: 60,
+      lives: 2,
+      enemyTarget: 3,
+      enemySpeed: 1.25,
+      startTrail: 3,
+      description: 'Fewer lives, faster hazards, and a tighter win window.'
+    }
+  };
+  const scoreMilestones = [
+    { progress: 0.25, message: '25% — Keep the clean water flowing!' },
+    { progress: 0.5, message: '50% — Halfway there! Every drop helps.' },
+    { progress: 0.75, message: '75% — Amazing progress, keep going!' },
+    { progress: 1, message: '100% — Clean water goal reached!' }
+  ];
   const DIRECTIONS = {
     up: { x: 0, y: -1 },
     down: { x: 0, y: 1 },
@@ -32,6 +64,7 @@
     progressTrack: document.querySelector('#progress-track'),
     progressFill: document.querySelector('#progress-fill'),
     progressDetail: document.querySelector('#progress-detail'),
+    goalInstructions: document.querySelector('.steps-list li:last-child small'),
     lives: document.querySelector('#life-row'),
     grid: document.querySelector('#snake-grid'),
     trail: document.querySelector('#trail-layer'),
@@ -48,7 +81,9 @@
     overlayButtonText: document.querySelector('#overlay-button-text'),
     overlayFootnote: document.querySelector('#overlay-footnote'),
     toast: document.querySelector('#toast'),
-    flash: document.querySelector('#screen-flash')
+    flash: document.querySelector('#screen-flash'),
+    difficultyIndicator: document.querySelector('#difficulty-indicator'),
+    soundToggle: document.querySelector('#sound-toggle')
   };
 
   const state = {
@@ -56,6 +91,7 @@
     score: 0,
     delivered: 0,
     lives: 3,
+    maxLives: 3,
     time: START_TIME,
     cols: 0,
     rows: 0,
@@ -74,7 +110,15 @@
     scoreTimer: null,
     celebrationTimer: null,
     toastMilestone: false,
-    nextEntityId: 0
+    nextEntityId: 0,
+    selectedDifficulty: 'normal',
+    targetDrops: GOAL,
+    timeLimit: START_TIME,
+    audioEnabled: true,
+    audioCtx: null,
+    audioOscillators: new Set(),
+    milestoneHistory: new Set(),
+    scoreMilestones: [...scoreMilestones]
   };
 
   function formatTime(seconds) {
@@ -82,16 +126,124 @@
     return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
   }
 
+  function getDifficultyConfig() {
+    return difficulties[state.selectedDifficulty] || difficulties.normal;
+  }
+
+  function applyDifficultySettings() {
+    const config = getDifficultyConfig();
+    state.targetDrops = config.goalDrops;
+    state.timeLimit = config.timeLimit;
+    state.lives = config.lives;
+    state.maxLives = config.lives;
+    state.maxLives = config.lives;
+    state.enemyTarget = config.enemyTarget;
+    state.longestTrail = config.startTrail;
+    state.scoreMilestones = scoreMilestones.map((milestone) => ({
+      ...milestone,
+      threshold: Math.ceil(config.goalDrops * 10 * milestone.progress)
+    }));
+    state.milestoneHistory = new Set();
+    elements.difficultyIndicator.textContent = config.label;
+    elements.difficultyIndicator.title = `${config.label} — ${config.description}`;
+    elements.goalInstructions.textContent = `Collect ${config.goalDrops} drops to reach 100% before ${formatTime(config.timeLimit)} runs out.`;
+    if (state.phase === 'ready') {
+      elements.overlayMessage.textContent = `Difficulty: ${config.label}. ${config.description} Collect ${state.targetDrops} clean drops before ${formatTime(state.timeLimit)} runs out.`;
+    }
+  }
+
+  function setDifficulty(name) {
+    if (!difficulties[name]) return;
+    state.selectedDifficulty = name;
+    document.querySelectorAll('.difficulty-option').forEach((button) => {
+      const selected = button.dataset.difficulty === name;
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    if (state.phase !== 'playing') {
+      applyDifficultySettings();
+      paintHud();
+    }
+    if (state.phase === 'playing') {
+      startGame();
+    }
+  }
+
+  function ensureAudioContext() {
+    if (!state.audioEnabled) return null;
+    if (!state.audioCtx) {
+      const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextCtor) return null;
+      state.audioCtx = new AudioContextCtor();
+    }
+    if (state.audioCtx.state === 'suspended') {
+      state.audioCtx.resume().catch(() => {});
+    }
+    return state.audioCtx;
+  }
+
+  function playSound(type) {
+    try {
+      const ctx = ensureAudioContext();
+      if (!ctx || !state.audioEnabled) return;
+
+      state.audioOscillators.forEach((oscillator) => oscillator.stop());
+      state.audioOscillators.clear();
+
+      const now = ctx.currentTime;
+      const durations = { collect: 0.16, penalty: 0.18, milestone: 0.22, win: 0.5, loss: 0.18, start: 0.12 };
+      const frequencies = { collect: 520, penalty: 180, milestone: 360, win: 660, loss: 145, start: 440 };
+      const duration = durations[type] || 0.2;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.035, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      gain.connect(ctx.destination);
+
+      const oscillator = ctx.createOscillator();
+      oscillator.type = type === 'collect' ? 'triangle' : type === 'penalty' || type === 'loss' ? 'sawtooth' : 'sine';
+      oscillator.frequency.setValueAtTime(frequencies[type] || 250, now);
+      oscillator.connect(gain);
+      oscillator.onended = () => state.audioOscillators.delete(oscillator);
+      state.audioOscillators.add(oscillator);
+      oscillator.start(now);
+      oscillator.stop(now + duration);
+    } catch {
+      return;
+    }
+  }
+
+  function toggleSound() {
+    state.audioEnabled = !state.audioEnabled;
+    elements.soundToggle.textContent = state.audioEnabled ? '🔊' : '🔇';
+    elements.soundToggle.setAttribute('aria-label', state.audioEnabled ? 'Mute sound' : 'Enable sound');
+    elements.soundToggle.setAttribute('aria-pressed', String(state.audioEnabled));
+    if (state.audioEnabled) {
+      ensureAudioContext();
+      playSound('collect');
+    } else {
+      state.audioOscillators.forEach((oscillator) => oscillator.stop());
+      state.audioOscillators.clear();
+    }
+  }
+
   function paintHud() {
-    const percent = Math.round((state.delivered / GOAL) * 100);
+    const percent = Math.round((state.delivered / state.targetDrops) * 100);
     elements.score.textContent = String(state.score).padStart(4, '0');
     elements.time.textContent = formatTime(state.time);
     elements.timeCard.classList.toggle('is-urgent', state.time <= 15 && state.phase === 'playing');
     elements.progress.textContent = `${percent}%`;
     elements.progressTrack.setAttribute('aria-valuenow', String(percent));
-    elements.progressFill.style.width = `${percent}%`;
-    elements.progressDetail.textContent = `${state.delivered} of ${GOAL} drops delivered`;
+    elements.progressFill.style.width = `${Math.min(100, percent)}%`;
+    elements.progressDetail.textContent = `${state.delivered} of ${state.targetDrops} drops delivered`;
     elements.lives.setAttribute('aria-label', `${state.lives} ${state.lives === 1 ? 'life' : 'lives'} remaining`);
+    while (elements.lives.children.length < state.maxLives) {
+      const life = document.createElement('span');
+      life.className = 'life-dot';
+      life.setAttribute('aria-hidden', 'true');
+      life.textContent = '♥';
+      elements.lives.append(life);
+    }
+    while (elements.lives.children.length > state.maxLives) elements.lives.lastElementChild.remove();
     [...elements.lives.children].forEach((life, index) => life.classList.toggle('is-lost', index >= state.lives));
   }
 
@@ -184,15 +336,21 @@
     items.forEach((item, index) => {
       let node = elements.items.children[index];
       const entityKey = `${item.kind}-${item.id}`;
-      if (!node) {
-        node = document.createElement('span');
-        elements.items.append(node);
+      if (!node || node.dataset.entityKey !== entityKey) {
+        const replacement = document.createElement('span');
+        replacement.className = `game-item ${item.kind}`;
+        replacement.innerHTML = icons[item.kind];
+        replacement.dataset.entityKey = entityKey;
+        replacement.setAttribute('role', 'button');
+        replacement.tabIndex = 0;
+        if (node) {
+          node.replaceWith(replacement);
+        } else {
+          elements.items.append(replacement);
+        }
+        node = replacement;
       }
-      if (node.dataset.entityKey !== entityKey) {
-        node.className = `game-item ${item.kind}`;
-        node.innerHTML = icons[item.kind];
-        node.dataset.entityKey = entityKey;
-      }
+      node.setAttribute('aria-label', item.kind === 'clean' ? 'Collect clean water drop' : 'Touch contaminated water: lose trail segments and points');
       setCellPosition(node, item);
     });
   }
@@ -225,8 +383,8 @@
     state.scoreTimer = setTimeout(() => elements.score.classList.remove('is-scored'), 420);
   }
 
-  function announce(message, milestone = false) {
-    if (state.toastMilestone && !milestone) return;
+  function announce(message, milestone = false, urgent = false) {
+    if (state.toastMilestone && !milestone && !urgent) return;
     clearTimeout(state.toastTimer);
     elements.toast.textContent = message;
     elements.toast.classList.toggle('is-milestone', milestone);
@@ -350,30 +508,31 @@
   }
 
   function showOverlay(type) {
+    const difficulty = getDifficultyConfig();
     const messages = {
       ready: {
         kicker: 'START HERE · EVERY DROP COUNTS',
         title: 'Water Quest',
         tagline: 'Every drop has a destination.',
-          message: 'Steer continuously. Collect 8 clean drops before 1:15 runs out; each one grows your trail. Avoid contaminated water, the board edge, and your own trail.',
+        message: `Difficulty: ${difficulty.label}. Collect ${state.targetDrops} clean drops before ${formatTime(state.timeLimit)} runs out. Avoid contaminated water, the board edge, and your own trail.`,
         button: 'Start Game',
         footnote: 'ARROWS / WASD · TAP ARROWS OR SWIPE'
       },
       won: {
         kicker: 'ROUTE COMPLETE · 100%',
         title: 'Every drop<br>made it home.',
-        tagline: 'Amazing! You helped bring clean water to the community!',
+        tagline: `Amazing! ${difficulty.label} mode complete — clean water reached the community!`,
         message: `Final score: ${state.score}. Clean water collected: ${state.delivered}. Longest trail: ${state.longestTrail} segments. Every community deserves clean water.`,
         button: 'Play again',
-        footnote: 'ALL 8 DROPS DELIVERED'
+        footnote: `${state.targetDrops} DROPS DELIVERED`
       },
       lost: {
         kicker: 'THE ROUTE NEEDS ANOTHER TRY',
         title: state.lossReason === 'timer' ? 'The clock ran<br>out this time.' : state.lossReason === 'trail' ? 'The trail ran<br>too short.' : 'The route needs<br>another try.',
         tagline: state.lossReason === 'timer' ? 'The clean-water goal is still in reach.' : state.lossReason === 'trail' ? 'Pollution left too little water to continue.' : 'Every attempt brings the goal closer.',
-        message: `Final score: ${state.score}. Clean water collected: ${state.delivered} of ${GOAL}. Longest trail: ${state.longestTrail} segments.`,
+        message: `Final score: ${state.score}. Clean water collected: ${state.delivered} of ${state.targetDrops}. Longest trail: ${state.longestTrail} segments.`,
         button: 'Try again',
-          footnote: 'ARROWS / WASD · TOUCH PAD OR SWIPE'
+        footnote: 'ARROWS / WASD · TOUCH PAD OR SWIPE'
       }
     };
     const copy = messages[type];
@@ -402,13 +561,14 @@
       flash();
       launchCelebration();
     }
+    playSound(won ? 'win' : 'loss');
     showOverlay(won ? 'won' : 'lost');
     paintHud();
   }
 
   function scheduleGameLoop() {
     if (state.phase !== 'playing') return;
-    const delay = Math.max(110, 175 - Math.floor(state.delivered / 2) * 10);
+    const delay = Math.max(110, Math.round((175 - Math.floor(state.delivered / 2) * 10) / getDifficultyConfig().enemySpeed));
     state.gameLoop = setTimeout(() => {
       if (state.phase !== 'playing') return;
       advanceSnake();
@@ -426,24 +586,29 @@
     elements.effects.replaceChildren();
     elements.toast.classList.remove('is-visible');
     state.phase = 'playing';
+    const config = getDifficultyConfig();
     state.score = 0;
     state.delivered = 0;
-    state.lives = 3;
-    state.time = START_TIME;
+    state.lives = config.lives;
+    state.maxLives = config.lives;
+    state.time = config.timeLimit;
+    state.timeLimit = config.timeLimit;
+    state.targetDrops = config.goalDrops;
     state.snake = [];
     state.cleanDrop = null;
     state.enemies = [];
-    state.enemyTarget = 2;
+    state.enemyTarget = config.enemyTarget;
     state.tickCount = 0;
-    state.longestTrail = START_TRAIL;
+    state.longestTrail = config.startTrail;
     state.lossReason = null;
     state.nextEntityId = 0;
     state.toastMilestone = false;
+    state.milestoneHistory = new Set();
     elements.toast.classList.remove('is-visible');
     elements.effects.replaceChildren();
     elements.stage.classList.remove('has-warning');
     elements.overlay.dataset.state = 'playing';
-    resetTrail(START_TRAIL);
+    resetTrail(config.startTrail);
     spawnCleanDrop();
     maintainEnemies();
     renderGame();
@@ -461,20 +626,22 @@
       }
     }, 1000);
     scheduleGameLoop();
+    playSound('start');
   }
 
   function loseLife(message) {
     if (state.phase !== 'playing') return;
     state.lives = Math.max(0, state.lives - 1);
     state.toastMilestone = false;
-    announce(message);
+    announce(message, false, true);
     flash(true);
+    playSound('penalty');
     if (state.lives === 0) {
       state.lossReason = 'lives';
       finishGame(false);
       return;
     }
-    resetTrail(START_TRAIL);
+    resetTrail(getDifficultyConfig().startTrail);
     renderGame();
     paintHud();
     elements.player.classList.remove('bump');
@@ -487,6 +654,67 @@
     const direction = DIRECTIONS[name];
     if (!direction || (direction.x === -state.direction.x && direction.y === -state.direction.y)) return;
     state.nextDirection = direction;
+  }
+
+  function checkMilestones() {
+    const reached = [];
+    state.scoreMilestones.forEach((milestone) => {
+      if (state.score >= milestone.threshold && !state.milestoneHistory.has(milestone.threshold)) {
+        state.milestoneHistory.add(milestone.threshold);
+        reached.push(milestone);
+      }
+    });
+    if (reached.length === 0) return false;
+    announce(reached[reached.length - 1].message, true);
+    playSound('milestone');
+    return true;
+  }
+
+  function completeCleanDelivery(cell) {
+    if (state.phase !== 'playing' || !state.cleanDrop) return;
+    state.cleanDrop = null;
+    state.delivered += 1;
+    state.score += 10;
+    state.longestTrail = Math.max(state.longestTrail, state.snake.length);
+    paintHud();
+    animateScore();
+    showEffect('splash-clean', cell);
+    playSound('collect');
+    const reachedMilestone = checkMilestones();
+    if ((state.delivered === 3 || state.delivered === 6) && state.enemyTarget < getDifficultyConfig().enemyTarget + 2) {
+      state.enemyTarget += 1;
+    }
+    maintainEnemies();
+    if (state.delivered >= state.targetDrops) {
+      renderGame();
+      finishGame(true);
+      return;
+    }
+    spawnCleanDrop();
+    renderGame();
+    if (!reachedMilestone) announce('Clean water collected · +10 points · trail +1');
+  }
+
+  function consumePollution(enemyIndex, cell, shortenedSnake) {
+    if (state.phase !== 'playing' || enemyIndex < 0) return;
+    state.enemies.splice(enemyIndex, 1);
+    state.score = Math.max(0, state.score - 20);
+    state.snake = shortenedSnake;
+    paintHud();
+    animateScore();
+    showEffect('splash-pollution', cell);
+    flash(true);
+    playSound('penalty');
+    state.toastMilestone = false;
+    if (state.snake.length < MIN_TRAIL) {
+      announce('Contaminated water! The trail is too short to continue.');
+      state.lossReason = 'trail';
+      finishGame(false);
+      return;
+    }
+    maintainEnemies();
+    renderGame();
+    announce('Contaminated water! −2 trail segments, −20 points', false, true);
   }
 
   function advanceSnake() {
@@ -513,43 +741,11 @@
 
     if (cleanHit) {
       state.snake = movedSnake;
-      state.cleanDrop = null;
-      state.delivered += 1;
-      state.score += 10;
-      state.longestTrail = Math.max(state.longestTrail, state.snake.length);
-      paintHud();
-      animateScore();
-      showEffect('splash-clean', nextHead);
-      const milestone = MILESTONES.get(state.delivered);
-      if (milestone) announce(milestone, true);
-      else announce('Clean water collected · +10 points · trail +1');
-      if ((state.delivered === 3 || state.delivered === 6) && state.enemyTarget < 4) {
-        state.enemyTarget += 1;
-      }
-      maintainEnemies();
-      if (state.delivered >= GOAL) {
-        renderGame();
-        finishGame(true);
-        return;
-      }
-      spawnCleanDrop();
+      completeCleanDelivery(nextHead);
+      if (state.phase !== 'playing') return;
     } else if (enemyIndex !== -1) {
-      state.enemies.splice(enemyIndex, 1);
-      state.score = Math.max(0, state.score - 20);
-      state.snake = movedSnake.slice(0, Math.max(0, movedSnake.length - 2));
-      paintHud();
-      animateScore();
-      showEffect('splash-pollution', nextHead);
-      flash(true);
-      state.toastMilestone = false;
-      if (state.snake.length < MIN_TRAIL) {
-        announce('Contaminated water! The trail is too short to continue.');
-        state.lossReason = 'trail';
-        finishGame(false);
-        return;
-      }
-      announce('Contaminated water! −2 trail segments, −20 points');
-      maintainEnemies();
+      consumePollution(enemyIndex, nextHead, movedSnake.slice(0, Math.max(0, movedSnake.length - 2)));
+      if (state.phase !== 'playing') return;
     } else {
       state.snake = movedSnake;
     }
@@ -580,8 +776,35 @@
   document.querySelectorAll('.move-button').forEach((button) => {
     button.addEventListener('click', () => setDirection(button.dataset.direction));
   });
+  document.querySelectorAll('.difficulty-option').forEach((button) => {
+    button.addEventListener('click', () => setDifficulty(button.dataset.difficulty));
+  });
+  function activateItem(item) {
+    if (!item || state.phase !== 'playing') return;
+    const [kind, rawId] = item.dataset.entityKey.split('-');
+    const id = Number(rawId);
+    if (kind === 'clean' && state.cleanDrop?.id === id) {
+      const tail = state.snake[state.snake.length - 1];
+      state.snake.push({ ...tail });
+      completeCleanDelivery(state.cleanDrop);
+    } else if (kind === 'contaminated') {
+      const enemyIndex = state.enemies.findIndex((enemy) => enemy.id === id);
+      if (enemyIndex !== -1) {
+        consumePollution(enemyIndex, state.enemies[enemyIndex], state.snake.slice(0, Math.max(0, state.snake.length - 2)));
+      }
+    }
+  }
+  elements.items.addEventListener('click', (event) => activateItem(event.target.closest('.game-item')));
+  elements.items.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const item = event.target.closest('.game-item');
+    if (!item) return;
+    event.preventDefault();
+    activateItem(item);
+  });
   elements.overlayButton.addEventListener('click', startGame);
   document.querySelector('#restart-button').addEventListener('click', startGame);
+  elements.soundToggle.addEventListener('click', toggleSound);
 
   let pointerStart = null;
   elements.stage.addEventListener('pointerdown', (event) => {
@@ -598,6 +821,7 @@
   });
   elements.stage.addEventListener('pointercancel', () => { pointerStart = null; });
 
+  applyDifficultySettings();
   configureGrid();
   resetTrail();
   spawnCleanDrop();

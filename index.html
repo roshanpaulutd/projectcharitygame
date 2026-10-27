@@ -62,6 +62,11 @@
                   <span class="overlay-drop" aria-hidden="true"><svg viewBox="0 0 40 48"><path d="M20 3C15.5 10.4 7 20.3 7 29a13 13 0 0 0 26 0C33 20.3 24.5 10.4 20 3Z"/></svg></span>
                   <h2 id="overlay-title">Water Quest</h2>
                   <p class="overlay-tagline" id="overlay-tagline">Every drop has a destination.</p>
+                  <div class="difficulty-picker" aria-label="Difficulty selector">
+                    <button type="button" class="difficulty-option" data-difficulty="easy" aria-pressed="false">Easy</button>
+                    <button type="button" class="difficulty-option is-selected" data-difficulty="normal" aria-pressed="true">Normal</button>
+                    <button type="button" class="difficulty-option" data-difficulty="hard" aria-pressed="false">Hard</button>
+                  </div>
                   <p id="overlay-message">Steer the water-drop leader continuously. Collect 8 clean drops before 1:15 runs out; each one grows your trail. Avoid contaminated water, the board edge, and your own trail.</p>
                   <button class="button button-primary" id="overlay-button" type="button"><span id="overlay-button-text">Start Game</span><span class="button-arrow" aria-hidden="true">→</span></button>
                   <span class="overlay-footnote" id="overlay-footnote">ARROWS / WASD · TOUCH PAD OR SWIPE</span>
@@ -81,6 +86,8 @@
               <button type="button" class="move-button move-down" data-direction="down" aria-label="Move down">↓</button>
               <button type="button" class="move-button move-right" data-direction="right" aria-label="Move right">→</button>
             </div>
+            <div class="difficulty-indicator" id="difficulty-indicator" aria-live="polite">Normal</div>
+            <button type="button" class="button button-quiet" id="sound-toggle" aria-label="Mute sound" aria-pressed="true" title="Mute sound">🔊</button>
             <button class="button button-quiet" id="restart-button" type="button" aria-label="Restart game" title="Restart game"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.7-4L3 9m0-5v5h5M4 13a8 8 0 0 0 14.7 4L21 15m0 5v-5h-5"/></svg><span>Restart</span></button>
           </div>
         </div>
@@ -108,7 +115,14 @@
       </section>
     </main>
 
-    <footer class="site-footer"><span>WATER QUEST <b>·</b> EVERY DROP COUNTS</span><span>AN INDEPENDENT EDUCATIONAL PROTOTYPE <i></i> INSPIRED BY CHARITY: WATER</span></footer>
+    <footer class="site-footer">
+      <div class="footer-brand"><span>WATER QUEST <b>·</b> EVERY DROP COUNTS</span></div>
+      <div class="footer-links" aria-label="charity: water links">
+        <a href="https://www.charitywater.org/" target="_blank" rel="noreferrer">Learn More</a>
+        <a href="https://www.charitywater.org/donate" target="_blank" rel="noreferrer">Donate</a>
+      </div>
+      <div class="footer-message">Every community deserves access to clean water.</div>
+    </footer>
   </div>
 </body>
 </html>

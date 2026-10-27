@@ -99,7 +99,8 @@ h1 { font-family: var(--serif); font-size: 60px; line-height: .98; letter-spacin
 .trail-segment:nth-child(even) .trail-bubble { background: radial-gradient(circle at 32% 26%,#eaffff 0%,#a2e5e1 34%,#54c4c9 78%); }
 .trail-segment.is-tail .trail-bubble { width: 72%; height: 72%; opacity: .78; }
 .items-layer { position: absolute; z-index: 4; inset: 0; pointer-events: none; }
-.game-item { position: absolute; display: grid; place-items: center; transform: translate(-50%,-50%); border-radius: 50%; transition: left .34s ease,top .34s ease; }
+.game-item { position: absolute; display: grid; place-items: center; transform: translate(-50%,-50%); border-radius: 50%; transition: left .34s ease,top .34s ease; pointer-events: auto; cursor: pointer; }
+.game-item:focus-visible { outline: 3px solid #137783; outline-offset: 2px; }
 .game-item.clean { filter: drop-shadow(0 3px 5px #187e8240); animation: clean-float 1.8s ease-in-out infinite alternate; }
 .game-item.clean svg { width: 80%; height: 80%; fill: #2ab5c5; filter: drop-shadow(0 2px 1px #147c8830); }
 .game-item.contaminated { display: grid; place-items: center; border: 1px solid #716342; border-radius: 48% 52% 56% 44%; background: #4a493d; box-shadow: inset 0 -3px 5px #29282080,0 3px 7px #27332b48; animation: pollution-drift 1.5s ease-in-out infinite alternate; }
@@ -131,7 +132,7 @@ h1 { font-family: var(--serif); font-size: 60px; line-height: .98; letter-spacin
 .button-primary:hover { background: #ffdb58; box-shadow: 0 4px 0 #d6a721; }
 .button-arrow { font-size: 18px; font-weight: 400; }
 .overlay-footnote { display: block; margin-top: 13px; color: #657267; font-size: 8px; }
-.toast { position: absolute; z-index: 6; top: 15px; left: 50%; max-width: calc(100% - 28px); transform: translate(-50%,-12px); padding: 9px 15px; border: 1px solid #fff; border-radius: 4px; background: #fffefa; color: #365343; box-shadow: 0 4px 14px #1d392c20; font-size: 11px; font-weight: 700; text-align: center; opacity: 0; visibility: hidden; transition: opacity .2s, transform .2s, visibility .2s; white-space: nowrap; }
+.toast { position: absolute; z-index: 6; top: 15px; left: 50%; width: max-content; max-width: calc(100% - 28px); transform: translate(-50%,-12px); padding: 9px 15px; border: 1px solid #fff; border-radius: 4px; background: #fffefa; color: #365343; box-shadow: 0 4px 14px #1d392c20; font-size: 11px; font-weight: 700; text-align: center; opacity: 0; visibility: hidden; transition: opacity .2s, transform .2s, visibility .2s; white-space: normal; }
 .toast.is-visible { opacity: 1; visibility: visible; transform: translate(-50%,0); }
 .toast.is-milestone { background: var(--yellow); border-color: #fff2af; animation: milestone-burst .42s cubic-bezier(.2,.8,.3,1); }
 .effects-layer { position: absolute; z-index: 6; inset: 0; pointer-events: none; }
@@ -322,6 +323,7 @@ kbd { display: grid; place-items: center; width: 20px; height: 18px; border: 1px
   .key-hint { display: none; }
   .touch-controls { grid-template-columns: repeat(3,44px); grid-template-rows: repeat(2,44px); gap: 3px; }
   .button-quiet { min-height: 33px; padding-inline: 7px; gap: 4px; font-size: 9px; }
+  #restart-button span { display: none; }
   .button-quiet svg { width: 13px; height: 13px; }
   .side-column { grid-template-columns: 1fr; gap: 9px; }
   .how-panel { padding: 15px 16px; }
